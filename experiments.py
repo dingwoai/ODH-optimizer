@@ -24,14 +24,14 @@ def exp1():
     u_i = np.append(0.2*np.random.rand(int(np.floor(n/2))), np.ones(int(np.ceil(n/2)))-0.2*np.random.rand(int(np.ceil(n/2))))
     lambdas = lambda_min + (lambda_max - lambda_min)*u_i
     A = np.diag(lambdas)
-    x0 = np.zeros(n)
-    b = A*np.random.rand(n)
+    x0 = np.zeros(n).reshape(n,1)
+    b = A@np.random.rand(n).reshape(n, 1)
 
     def objFun(x):
-        return 1/2 * x.transpose * A * x - x.transpose * b
+        return 1/2 * x.transpose @ A @ x - x.transpose @ b
 
     def gradFun(x):
-        return A * x - b
+        return A @ x - b
 
     odhoptim = ODH(x0, objFun, gradFun, A, maxIter=5, verbose=True)
     odhoptim.optimize()
