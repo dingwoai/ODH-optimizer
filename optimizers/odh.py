@@ -11,21 +11,21 @@ class ODH:
                  theta=0.01,
                  kappa=0.1,
                  maxIter=1e5,
-                 tolerance=1e-6,
+                 tolerance=1e-3,
                  verbose=False):
         """
         Parameters:
         x0: np.array, starting point.
         objFun: The obective function to be minimized.
         gradFun: Function that calculates the gradient of objFun.
-        strategy: {'ODE1', 'ODE2', 'adaptive'}.
+        A: objFun(x)=1/2*x^T*A*x + b^T*x
+        strategy: {'ODH1', 'ODH2', 'adaptive1', 'adaptive2'}.
         maxIter: stop criteria, maximum iterations.
         tolerance: stop criteria.
         """
         gradx0 = gradFun(x0)
         self.objFun = objFun
         self.gradFun = gradFun
-        # self.x = [x0, self.backtracking(x0, gradx0)]
         self.x = [x0, x0+np.random.rand(len(x0)).reshape(-1,1)]
         self.alpha = []
         self.g = [gradx0, gradFun(self.x[-1])]
@@ -41,23 +41,23 @@ class ODH:
         if self.verbose:
             print("Initial values: ", self.x, self.g)
 
-    
-    def backtracking(self, x0, g0):
-        """ Suggested algorithm to avoid poor choices of 2 initial points """
-        '''
-        This function is modified from https://github.com/mesquita-daniel/StabBB
-        '''
-        alpha0 = 1 / np.linalg.norm(x0, np.inf)
-        s0 = -alpha0 * g0
-        x1 = x0 + s0
-        while self.objFun(x1) > self.objFun(x0):
-            s0 = s0 / 4
-            x1 = x0 + s0
-        return x1
+    def plot(self):
+        import matplotlib.pyplot as plt
+        iter = np.arange(0, len(self.gk_norm), 1)
+        plt.plot(iter, self.gk_norm)
+        plt.show()
 
     def optimize(self):
         gk_norm = np.linalg.norm(self.g[-1], ord=2)
-        while gk_norm>self.tolerance and self.iter<self.maxIter:
+        while True:
+            # stop criterium
+            if gk_norm<self.tolerance:
+                print("gk_norm is small enough with value ", gk_norm) 
+                break
+            if self.iter>=self.maxIter:
+                print('max number of iterations ', self.iter, ' is reached')
+                break
+
             # calculate alpha
             alphak, status = self.calcAlpha(self.strategy)
 
@@ -73,6 +73,7 @@ class ODH:
                 gk = self.g[-1] - 1./alphak*self.A @ self.g[-1]
             except:
                 gk = self.gradFun(xk)
+            gk_norm = np.linalg.norm(self.g[-1], ord=2)
             self.iter+=1
 
             # recording
@@ -83,7 +84,7 @@ class ODH:
 
             if self.verbose:
                 if self.iter%100==0:
-                    print("Iter:", self.iter)
+                    print("Iter done:", self.iter)
                     print("alphak:", alphak, "gk_norm:", gk_norm, 'gk', gk,  "x:", xk)
                     # break
 
@@ -95,7 +96,7 @@ class ODH:
         # s[k-1] = x[k] - x[k-1]
         sk_old = self.x[-1] - self.x[-2]
 
-        if np.linalg.norm(sk_old, ord=2)<self.tolerance:
+        if np.linalg.norm(sk_old, ord=2)<self.tolerance and np.linalg.norm(yk_old, ord=2)<self.tolerance:
             status = 1
         if strategy=='ODH1':
             return self.calcAlpha_ODH1(yk_old, sk_old), status
@@ -104,27 +105,27 @@ class ODH:
         else:
             alphak1 = self.calcAlpha_ODH1(yk_old, sk_old)
             alphak2 = self.calcAlpha_ODH2(yk_old, sk_old)
+
             if strategy=='adaptive1':
                 if alphak1<=self.kappa*alphak2:
                     return alphak1, status
                 else:
                     return alphak2, status
             elif strategy=='adaptive2':
+                m = 100     ## TODO, this value should be more reasonable
+                M = max(1, self.iter+1-m)
                 if alphak1<=self.kappa*alphak2:
-                    m = 100
-                    return np.min([self.alpha[-m:-1], alphak1]), status
+                    return np.min(np.append(self.alpha[-m:-1], alphak1)), status
                 else:
                     return alphak2, status
         
     def calcAlpha_ODH1(self, yk_old, sk_old):
         Dk_old = (yk_old @ yk_old.transpose()) / (sk_old.transpose() @ yk_old)
-        # alphak = (self.theta * np.trace(Dk_old) + sk_old.transpose() @ yk_old) / (self.theta + sk_old.transpose() @ sk_old)
         alphak = (self.theta * np.trace(Dk_old) + sk_old.transpose() @ yk_old) / (self.theta + sk_old.transpose() @ sk_old)
         return alphak
 
     def calcAlpha_ODH2(self, yk_old, sk_old):
         Hk_old = (sk_old @ sk_old.transpose()) / (sk_old.transpose() @ yk_old)
-        # alphak = (self.theta + (yk_old.transpose() @ yk_old)) / (self.theta * np.trace(Hk_old) + sk_old.transpose() @ yk_old)
         alphak = (self.theta + (yk_old.transpose() @ yk_old)) / (self.theta * np.trace(Hk_old) + sk_old.transpose() @ yk_old)
         return alphak
 

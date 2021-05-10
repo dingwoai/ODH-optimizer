@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from optimizers.odh import ODH
 
@@ -25,7 +26,8 @@ def exp1():
     lambdas = lambda_min + (lambda_max - lambda_min)*u_i
     A = np.diag(lambdas)
     x0 = np.zeros(n).reshape(n,1)
-    b = A@np.random.rand(n).reshape(n, 1)
+    xstar = np.random.rand(n, 1)
+    b = A@xstar
 
     def objFun(x):
         return 1/2 * x.transpose @ A @ x - x.transpose @ b
@@ -33,11 +35,40 @@ def exp1():
     def gradFun(x):
         return A @ x - b
 
-    odhoptim = ODH(x0, objFun, gradFun, A, maxIter=5, verbose=True)
+    odhoptim = ODH(x0, objFun, gradFun, A, maxIter=1e5, verbose=True)
     odhoptim.optimize()
+    odhoptim.plot()
+
+def exp4():
+    ## Experiment 4, A is a tridiagonal matrix
+    n = np.random.choice([500, 1000, 1500, 2000])
+    h = 11/n
+    A = np.zeros([n, n])
+    for i in range(0, n):
+        A[i, i] = 2/h/h
+        if i!=0:
+            A[i, i-1] = -1/h/h
+        if i!=n-1:
+            A[i, i+1] = -1/h/h
+    x0 = np.zeros(n).reshape(n, 1)
+    xstar = (-10 + 20*np.random.rand(n, 1))
+    b = A@xstar
+
+    def objFun(x):
+        return 1/2 * x.transpose @ A @ x - x.transpose @ b
+
+    def gradFun(x):
+        return A @ x - b
+
+    start = time.time()
+    odhoptim = ODH(x0, objFun, gradFun, A, strategy='ODH1', maxIter=1e4, verbose=False)
+    odhoptim.optimize()
+    # odhoptim.plot()
+    print('n:', n, 'Nitr: ', odhoptim.iter, 'NrmG:', odhoptim.gk_norm[-1], 'Time(s):', time.time()-start)
+    print('Optimum diff:', xstar-odhoptim.x[-1])
 
 if __name__=='__main__':
-    exp1()
+    exp4()
     ## initialize
     # n = 5
     # # x0 = 10*np.random.rand(n).reshape(n,1)
