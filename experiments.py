@@ -1,6 +1,8 @@
 import time
 import numpy as np
 from optimizers.odh import ODH
+from optimizers.bb import BB
+from utils.plot import *
 
 def exp0():
     '''
@@ -35,9 +37,10 @@ def exp1():
     def gradFun(x):
         return A @ x - b
 
-    odhoptim = ODH(x0, objFun, gradFun, A, maxIter=1e5, verbose=True)
-    odhoptim.optimize()
-    odhoptim.plot()
+    odhoptim = ODH(x0, objFun, gradFun, A, maxIter=1e5, verbose=False, optim=xstar, expname='exp1')
+    bboptim = BB(x0, objFun, gradFun, A, maxIter=1e4, verbose=False, optim=xstar, expname='exp1')
+    # odhoptim.optimize()
+    # odhoptim.plot()
 
 def exp4():
     ## Experiment 4, A is a tridiagonal matrix
@@ -61,14 +64,24 @@ def exp4():
         return A @ x - b
 
     start = time.time()
-    odhoptim = ODH(x0, objFun, gradFun, A, strategy='ODH1', maxIter=1e4, verbose=False)
-    odhoptim.optimize()
-    # odhoptim.plot()
-    print('n:', n, 'Nitr: ', odhoptim.iter, 'NrmG:', odhoptim.gk_norm[-1], 'Time(s):', time.time()-start)
-    print('Optimum diff:', xstar-odhoptim.x[-1])
+    odhoptim = ODH(x0, objFun, gradFun, A, maxIter=1e4, verbose=False, optim=xstar, expname='exp4')
+    bboptim = BB(x0, objFun, gradFun, A, maxIter=1e4, verbose=False, optim=xstar, expname='exp4')
+    # odhoptim.optimize()
+    # odhoptim.plot(save=True)
+    # print('n:', n, 'Nitr: ', odhoptim.iter, 'NrmG:', odhoptim.gk_norm[-1], 'Time(s):', time.time()-start)
+    # # print('Optimum diff:', xstar-odhoptim.x[-1])
+    # print('Error norm: ', odhoptim.error[-1])
 
 if __name__=='__main__':
-    exp4()
+    exp1()
+    root_dir = './assets/'
+    filenames = ['odh-ODH1-exp1', 'odh-ODH2-exp1', 'odh-adaptive1-exp1', 'odh-adaptive2-exp1', 'BB1-exp1', 'BB2-exp1']
+    plot_from_npz(root_dir, filenames, savename='exp1.png')
+    # exp4()
+    # root_dir = './assets/'
+    # filenames = ['odh-ODH1-exp4', 'odh-ODH2-exp4', 'odh-adaptive1-exp4', 'odh-adaptive2-exp4', 'BB1-exp4', 'BB2-exp4']
+    # plot_from_npz(root_dir, filenames, savename='exp4.png')
+    
     ## initialize
     # n = 5
     # # x0 = 10*np.random.rand(n).reshape(n,1)

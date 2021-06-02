@@ -2,13 +2,13 @@ import numpy as np
 from scipy.optimize import minimize, rosen, rosen_der
 from utils.plot import *
 
-class ODH:
+class BB:
     def __init__(self,
                  x0,
                  objFun,
                  gradFun,
                  A=None,
-                 strategies=['ODH1', 'ODH2', 'adaptive1', 'adaptive2'],
+                 strategies=['BB1', 'BB2'],
                  theta=0.01,
                  kappa=0.1,
                  maxIter=1e5,
@@ -17,13 +17,14 @@ class ODH:
                  optim=0,
                  expname='exp1'):
         """
-        An unofficial implementation of article "TWO NOVEL GRADIENT METHODS WITH OPTIMAL STEP SIZES"
+        An unofficial implementation of Barzilar-Borwein (BB) method.
+        Refer to the book 《最优化：建模、算法与理论》, page 229
         Parameters:
         x0: np.array, starting point.
         objFun: The obective function to be minimized.
         gradFun: Function that calculates the gradient of objFun.
         A: objFun(x)=1/2*x^T*A*x + b^T*x
-        strategy: {'ODH1', 'ODH2', 'adaptive1', 'adaptive2'}.
+        strategy: {'BB1', 'BB2'}.
         maxIter: stop criteria, maximum iterations.
         tolerance: stop criteria.
         """
@@ -59,7 +60,7 @@ class ODH:
         # plot_multi([self.gk_norm, self.error], ['gk_norm', 'error'])
 
     def save_result(self, name):
-        np.savez('./assets/odh-'+name+'.npz', 
+        np.savez('./assets/'+name+'.npz', 
                  alpha=self.alpha,
                  g=self.g,
                  x=self.x,
@@ -76,7 +77,7 @@ class ODH:
 
     def optimize(self):
         '''
-        Refer to Algorithm 4.1 in paper.
+        Refer to Algorithm 6.2 in book.
         '''
         gk_norm = np.linalg.norm(self.g[-1], ord=2)
         while True:
@@ -98,9 +99,9 @@ class ODH:
                 break
 
             # update
-            xk = self.x[-1] - 1./alphak*self.g[-1]
+            xk = self.x[-1] - alphak*self.g[-1]  ## this is different with odh
             try:
-                gk = self.g[-1] - 1./alphak*self.A @ self.g[-1]
+                gk = self.g[-1] - alphak*self.A @ self.g[-1]  ## this is different with odh
             except:
                 gk = self.gradFun(xk)
             gk_norm = np.linalg.norm(self.g[-1], ord=2)
@@ -121,7 +122,7 @@ class ODH:
                     # break
 
     def calcAlpha(self, strategy):
-        assert strategy in ['ODH1', 'ODH2', 'adaptive1', 'adaptive2']
+        assert strategy in ['BB1', 'BB2']
         status = 0
         # y[k] = g[k] - g[k-1]
         yk_old = self.g[-1] - self.g[-2]
@@ -131,22 +132,20 @@ class ODH:
         if np.linalg.norm(sk_old, ord=2)<self.tolerance and np.linalg.norm(yk_old, ord=2)<self.tolerance:
             ## stop if solution x AND gradient g do not change much
             status = 1
-        if strategy=='ODH1':
-            return self.calcAlpha_ODH1(yk_old, sk_old), status
-        elif strategy=='ODH2':
-            return self.calcAlpha_ODH2(yk_old, sk_old), status
+        if strategy=='BB1':
+            return self.calcAlpha_BB1(yk_old, sk_old), status
+        elif strategy=='BB2':
+            return self.calcAlpha_BB2(yk_old, sk_old), status
         else:
-            alphak1 = self.calcAlpha_ODH1(yk_old, sk_old)
-            alphak2 = self.calcAlpha_ODH2(yk_old, sk_old)
+            alphak1 = self.calcAlpha_BB1(yk_old, sk_old)
+            alphak2 = self.calcAlpha_BB2(yk_old, sk_old)
 
             if strategy=='adaptive1':
-                ## equation (4.14)
                 if alphak1<=self.kappa*alphak2:
                     return alphak1, status
                 else:
                     return alphak2, status
             elif strategy=='adaptive2':
-                ## equation (4.15)
                 m = 100     ## TODO, this value should be more reasonable
                 M = max(1, self.iter+1-m)
                 if alphak1<=self.kappa*alphak2:
@@ -154,16 +153,14 @@ class ODH:
                 else:
                     return alphak2, status
         
-    def calcAlpha_ODH1(self, yk_old, sk_old):
-        Dk_old = (yk_old @ yk_old.transpose()) / (sk_old.transpose() @ yk_old)
-        ## equation (4.3)
-        alphak = (self.theta * np.trace(Dk_old) + sk_old.transpose() @ yk_old) / (self.theta + sk_old.transpose() @ sk_old)
+    def calcAlpha_BB1(self, yk_old, sk_old):
+        ## equation (6.2.9)
+        alphak = (sk_old.transpose() @ yk_old) / (yk_old.transpose() @ yk_old)
         return alphak
 
-    def calcAlpha_ODH2(self, yk_old, sk_old):
-        Hk_old = (sk_old @ sk_old.transpose()) / (sk_old.transpose() @ yk_old)
-        ## equation (4.3)
-        alphak = (self.theta + (yk_old.transpose() @ yk_old)) / (self.theta * np.trace(Hk_old) + sk_old.transpose() @ yk_old)
+    def calcAlpha_BB2(self, yk_old, sk_old):
+        ## equation (6.2.9)
+        alphak = (sk_old.transpose() @ sk_old) / (sk_old.transpose() @ yk_old)
         return alphak
 
 if __name__=='__main__':
