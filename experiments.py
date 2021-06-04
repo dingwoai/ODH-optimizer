@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import argparse
 from optimizers.odh import ODH
 from optimizers.bb import BB
 from utils.plot import *
@@ -42,6 +43,25 @@ def exp1():
     # odhoptim.optimize()
     # odhoptim.plot()
 
+def exp2():
+    ## Experiment 2, A = diag(1, 2, . . . , n), where n is the condition number of the Hessian of the function f(x)
+    k = np.random.choice([1, 10, 25, 50, 100, 200]) ## memoryError for k>200
+    k = 50
+    n = 100*k
+    A = np.diag(list(range(1, n+1)))
+    x0 = np.zeros(n).reshape(n, 1)
+    xstar = np.ones(n).reshape(n, 1)
+    b = A@xstar
+
+    def objFun(x):
+        return 1/2 * x.transpose @ A @ x - x.transpose @ b
+
+    def gradFun(x):
+        return A @ x - b
+
+    odhoptim = ODH(x0, objFun, gradFun, A, maxIter=1e4, verbose=False, optim=xstar, expname='exp2')
+    bboptim = BB(x0, objFun, gradFun, A, maxIter=1e4, verbose=False, optim=xstar, expname='exp2')
+
 def exp4():
     ## Experiment 4, A is a tridiagonal matrix
     n = np.random.choice([500, 1000, 1500, 2000])
@@ -63,24 +83,67 @@ def exp4():
     def gradFun(x):
         return A @ x - b
 
-    start = time.time()
     odhoptim = ODH(x0, objFun, gradFun, A, maxIter=1e4, verbose=False, optim=xstar, expname='exp4')
     bboptim = BB(x0, objFun, gradFun, A, maxIter=1e4, verbose=False, optim=xstar, expname='exp4')
-    # odhoptim.optimize()
-    # odhoptim.plot(save=True)
-    # print('n:', n, 'Nitr: ', odhoptim.iter, 'NrmG:', odhoptim.gk_norm[-1], 'Time(s):', time.time()-start)
-    # # print('Optimum diff:', xstar-odhoptim.x[-1])
-    # print('Error norm: ', odhoptim.error[-1])
+
+def exp5():
+    ## Experiment 5, compare the numerical performance of some methods in terms of the average number of iterations solving randomly generated sparse systems of equations
+    import scipy.stats as stats
+    import scipy.sparse as sparse
+    # np.random.seed((3,14159))
+    n = 1000
+
+    def sprandsym(n, density):
+        rvs = stats.norm().rvs
+        X = sparse.random(n, n, density=density, data_rvs=rvs)
+        upper_X = sparse.triu(X) 
+        result = upper_X + upper_X.T - sparse.diags(X.diagonal())
+        return result
+
+    A = sprandsym(n, 0.8)  # in Matlab, A = sprandsym(n, 0.8, 1/condA, 1)
+    x0 = (-10 + 20*np.random.rand(n, 1))
+    xstar = (-10 + 20*np.random.rand(n, 1))
+    b = A@xstar
+    
+    def objFun(x):
+        return 1/2 * x.transpose @ A @ x - x.transpose @ b
+
+    def gradFun(x):
+        return A @ x - b
+
+    t = np.random.choice([1e-1, 1e-3, 1e-6])
+    odhoptim = ODH(x0, objFun, gradFun, A, maxIter=2e5, tolerance=t, verbose=False, optim=xstar, expname='exp5')
+    bboptim = BB(x0, objFun, gradFun, A, maxIter=2e5, tolerance=t,verbose=False, optim=xstar, expname='exp5')
 
 if __name__=='__main__':
-    exp1()
-    root_dir = './assets/'
-    filenames = ['odh-ODH1-exp1', 'odh-ODH2-exp1', 'odh-adaptive1-exp1', 'odh-adaptive2-exp1', 'BB1-exp1', 'BB2-exp1']
-    plot_from_npz(root_dir, filenames, savename='exp1.png')
-    # exp4()
-    # root_dir = './assets/'
-    # filenames = ['odh-ODH1-exp4', 'odh-ODH2-exp4', 'odh-adaptive1-exp4', 'odh-adaptive2-exp4', 'BB1-exp4', 'BB2-exp4']
-    # plot_from_npz(root_dir, filenames, savename='exp4.png')
+    parser = argparse.ArgumentParser(description='Select an experiment to run.')
+    parser.add_argument('--exp', type=int, 
+                        help='an integer for the experiment')
+
+    args = parser.parse_args()
+
+    if args.exp==1:
+        exp1()
+        root_dir = './assets/'
+        filenames = ['odh-ODH1-exp1', 'odh-ODH2-exp1', 'odh-adaptive1-exp1', 'odh-adaptive2-exp1', 'BB1-exp1', 'BB2-exp1']
+        plot_from_npz(root_dir, filenames, savename='exp1.png')
+    elif args.exp==2:
+        exp2()
+        root_dir = './assets/'
+        filenames = ['odh-ODH1-exp2', 'odh-ODH2-exp2', 'odh-adaptive1-exp2', 'odh-adaptive2-exp2', 'BB1-exp2', 'BB2-exp2']
+        plot_from_npz(root_dir, filenames, savename='exp2.png')
+    elif args.exp==4:
+        exp4()
+        root_dir = './assets/'
+        filenames = ['odh-ODH1-exp4', 'odh-ODH2-exp4', 'odh-adaptive1-exp4', 'odh-adaptive2-exp4', 'BB1-exp4', 'BB2-exp4']
+        plot_from_npz(root_dir, filenames, savename='exp4.png')
+    elif args.exp==5:
+        exp5()
+        root_dir = './assets/'
+        filenames = ['odh-ODH1-exp5', 'odh-ODH2-exp5', 'odh-adaptive1-exp5', 'odh-adaptive2-exp5', 'BB1-exp5', 'BB2-exp5']
+        plot_from_npz(root_dir, filenames, savename='exp5.png')
+    else:
+        print(f"Experiment {args.exp} is not implemented yet.")
     
     ## initialize
     # n = 5

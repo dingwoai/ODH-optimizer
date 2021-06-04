@@ -1,3 +1,5 @@
+line_profiler==3.2.6
 matplotlib==3.3.4
-scipy==1.6.1
+wrapt==1.12.1
 numpy==1.16.6
+scipy==1.6.1

@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.optimize import minimize, rosen, rosen_der
 from utils.plot import *
+from utils.common import *
 
 class ODH:
     def __init__(self,
@@ -12,7 +13,7 @@ class ODH:
                  theta=0.01,
                  kappa=0.1,
                  maxIter=1e5,
-                 tolerance=1e-3,
+                 tolerance=1e-8,
                  verbose=False,
                  optim=0,
                  expname='exp1'):
@@ -74,6 +75,7 @@ class ODH:
         self.iter = 0
         self.error = []
 
+    @lineprofile_wrapper()
     def optimize(self):
         '''
         Refer to Algorithm 4.1 in paper.
@@ -153,7 +155,7 @@ class ODH:
                     return np.min(np.append(self.alpha[-m:-1], alphak1)), status
                 else:
                     return alphak2, status
-        
+    
     def calcAlpha_ODH1(self, yk_old, sk_old):
         Dk_old = (yk_old @ yk_old.transpose()) / (sk_old.transpose() @ yk_old)
         ## equation (4.3)

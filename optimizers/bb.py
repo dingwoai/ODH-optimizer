@@ -12,7 +12,7 @@ class BB:
                  theta=0.01,
                  kappa=0.1,
                  maxIter=1e5,
-                 tolerance=1e-3,
+                 tolerance=1e-8,
                  verbose=False,
                  optim=0,
                  expname='exp1'):
