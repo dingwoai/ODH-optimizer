@@ -9,9 +9,10 @@ class ODH:
                  objFun,
                  gradFun,
                  A=None,
-                 strategies=['ODH1', 'ODH2', 'adaptive1', 'adaptive2'],
-                 theta=0.01,
-                 kappa=0.1,
+                 strategies=['ODH1', 'ODH2', 'AODH', 'AODHmin1'],
+                 theta=1,  ## theta=n according to paper
+                 kappa=0.5,
+                 tau=0.65,
                  maxIter=1e5,
                  tolerance=1e-8,
                  verbose=False,
@@ -24,7 +25,7 @@ class ODH:
         objFun: The obective function to be minimized.
         gradFun: Function that calculates the gradient of objFun.
         A: objFun(x)=1/2*x^T*A*x + b^T*x
-        strategy: {'ODH1', 'ODH2', 'adaptive1', 'adaptive2'}.
+        strategy: {'ODH1', 'ODH2', 'AODH', 'AODHmin1'}.
         maxIter: stop criteria, maximum iterations.
         tolerance: stop criteria.
         """
@@ -40,6 +41,7 @@ class ODH:
         # self.strategy = strategy
         self.theta = theta
         self.kappa = kappa
+        self.tau = tau
         self.maxIter = maxIter
         self.tolerance = tolerance
         self.verbose = verbose
@@ -60,7 +62,7 @@ class ODH:
         # plot_multi([self.gk_norm, self.error], ['gk_norm', 'error'])
 
     def save_result(self, name):
-        np.savez('./assets/odh-'+name+'.npz', 
+        np.savez('./assets/'+name+'.npz', 
                  alpha=self.alpha,
                  g=self.g,
                  x=self.x,
@@ -123,7 +125,7 @@ class ODH:
                     # break
 
     def calcAlpha(self, strategy):
-        assert strategy in ['ODH1', 'ODH2', 'adaptive1', 'adaptive2']
+        assert strategy in ['ODH1', 'ODH2', 'AODH', 'AODHmin1']
         status = 0
         # y[k] = g[k] - g[k-1]
         yk_old = self.g[-1] - self.g[-2]
@@ -141,17 +143,17 @@ class ODH:
             alphak1 = self.calcAlpha_ODH1(yk_old, sk_old)
             alphak2 = self.calcAlpha_ODH2(yk_old, sk_old)
 
-            if strategy=='adaptive1':
+            if strategy=='AODH':
                 ## equation (4.14)
                 if alphak1<=self.kappa*alphak2:
                     return alphak1, status
                 else:
                     return alphak2, status
-            elif strategy=='adaptive2':
+            elif strategy=='AODHmin1':
                 ## equation (4.15)
-                m = 100     ## TODO, this value should be more reasonable
+                m = 9     ## this value is chosen following setting in paper
                 M = max(1, self.iter+1-m)
-                if alphak1<=self.kappa*alphak2:
+                if alphak1<=self.tau*alphak2:
                     return np.min(np.append(self.alpha[-m:-1], alphak1)), status
                 else:
                     return alphak2, status

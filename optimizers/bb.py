@@ -8,9 +8,10 @@ class BB:
                  objFun,
                  gradFun,
                  A=None,
-                 strategies=['BB1', 'BB2'],
-                 theta=0.01,
-                 kappa=0.1,
+                 strategies=['BB1', 'BB2', 'ABB', 'ABBmin1'],
+                 theta=1,
+                 kappa=0.5,
+                 tau=0.65,
                  maxIter=1e5,
                  tolerance=1e-8,
                  verbose=False,
@@ -18,13 +19,14 @@ class BB:
                  expname='exp1'):
         """
         An unofficial implementation of Barzilar-Borwein (BB) method.
-        Refer to the book 《最优化：建模、算法与理论》, page 229
+        Refer to the book 《最优化：建模、算法与理论》, page 229, 
+        as well as paper "TWO NOVEL GRADIENT METHODS WITH OPTIMAL STEP SIZES".
         Parameters:
         x0: np.array, starting point.
         objFun: The obective function to be minimized.
         gradFun: Function that calculates the gradient of objFun.
         A: objFun(x)=1/2*x^T*A*x + b^T*x
-        strategy: {'BB1', 'BB2'}.
+        strategy: {'BB1', 'BB2', 'ABB', 'ABBmin1'}.
         maxIter: stop criteria, maximum iterations.
         tolerance: stop criteria.
         """
@@ -40,6 +42,7 @@ class BB:
         # self.strategy = strategy
         self.theta = theta
         self.kappa = kappa
+        self.tau = tau
         self.maxIter = maxIter
         self.tolerance = tolerance
         self.verbose = verbose
@@ -122,7 +125,7 @@ class BB:
                     # break
 
     def calcAlpha(self, strategy):
-        assert strategy in ['BB1', 'BB2']
+        assert strategy in ['BB1', 'BB2', 'ABB', 'ABBmin1']
         status = 0
         # y[k] = g[k] - g[k-1]
         yk_old = self.g[-1] - self.g[-2]
@@ -140,15 +143,15 @@ class BB:
             alphak1 = self.calcAlpha_BB1(yk_old, sk_old)
             alphak2 = self.calcAlpha_BB2(yk_old, sk_old)
 
-            if strategy=='adaptive1':
+            if strategy=='ABB':
                 if alphak1<=self.kappa*alphak2:
                     return alphak1, status
                 else:
                     return alphak2, status
-            elif strategy=='adaptive2':
-                m = 100     ## TODO, this value should be more reasonable
+            elif strategy=='ABBmin1':
+                m = 9     ## this value is chosen following setting in paper
                 M = max(1, self.iter+1-m)
-                if alphak1<=self.kappa*alphak2:
+                if alphak1<=self.tau*alphak2:
                     return np.min(np.append(self.alpha[-m:-1], alphak1)), status
                 else:
                     return alphak2, status

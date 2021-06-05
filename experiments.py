@@ -22,8 +22,10 @@ def exp0():
     odhoptim.optimize()
 
 def exp1():
-    ## Experiment 1, Example 2
-    n = 10
+    '''
+    Experiment 1, Example 2
+    '''
+    n = 1000
     lambda_min, lambda_max = 1, 1e3
     u_i = np.append(0.2*np.random.rand(int(np.floor(n/2))), np.ones(int(np.ceil(n/2)))-0.2*np.random.rand(int(np.ceil(n/2))))
     lambdas = lambda_min + (lambda_max - lambda_min)*u_i
@@ -38,16 +40,20 @@ def exp1():
     def gradFun(x):
         return A @ x - b
 
-    odhoptim = ODH(x0, objFun, gradFun, A, maxIter=1e5, verbose=False, optim=xstar, expname='exp1')
+    strategies=['ODH1', 'ODH2', 'AODH', 'AODHmin1']
+    odhoptim = ODH(x0, objFun, gradFun, A, theta=n, strategies=strategies, maxIter=1e4, verbose=False, optim=xstar, expname='exp1')
     bboptim = BB(x0, objFun, gradFun, A, maxIter=1e4, verbose=False, optim=xstar, expname='exp1')
     # odhoptim.optimize()
     # odhoptim.plot()
 
 def exp2():
-    ## Experiment 2, A = diag(1, 2, . . . , n), where n is the condition number of the Hessian of the function f(x)
+    '''
+    Experiment 2, A = diag(1, 2, ..., n), where n is the condition number of the Hessian of the function f(x)
+    '''
     k = np.random.choice([1, 10, 25, 50, 100, 200]) ## memoryError for k>200
     k = 50
     n = 100*k
+    print(n)
     A = np.diag(list(range(1, n+1)))
     x0 = np.zeros(n).reshape(n, 1)
     xstar = np.ones(n).reshape(n, 1)
@@ -59,12 +65,16 @@ def exp2():
     def gradFun(x):
         return A @ x - b
 
-    odhoptim = ODH(x0, objFun, gradFun, A, maxIter=1e4, verbose=False, optim=xstar, expname='exp2')
+    strategies=['ODH1', 'ODH2', 'AODH', 'AODHmin1']
+    odhoptim = ODH(x0, objFun, gradFun, A, theta=n, strategies=strategies, maxIter=1e4, verbose=False, optim=xstar, expname='exp2')
     bboptim = BB(x0, objFun, gradFun, A, maxIter=1e4, verbose=False, optim=xstar, expname='exp2')
 
 def exp4():
-    ## Experiment 4, A is a tridiagonal matrix
+    '''
+    Experiment 4, A is a tridiagonal matrix
+    '''
     n = np.random.choice([500, 1000, 1500, 2000])
+    print(n)
     h = 11/n
     A = np.zeros([n, n])
     for i in range(0, n):
@@ -83,11 +93,14 @@ def exp4():
     def gradFun(x):
         return A @ x - b
 
-    odhoptim = ODH(x0, objFun, gradFun, A, maxIter=1e4, verbose=False, optim=xstar, expname='exp4')
-    bboptim = BB(x0, objFun, gradFun, A, maxIter=1e4, verbose=False, optim=xstar, expname='exp4')
+    strategies=['ODH1', 'ODH2', 'AODH', 'AODHmin1']
+    odhoptim = ODH(x0, objFun, gradFun, A, theta=n, strategies=strategies, maxIter=3.5e4, verbose=False, optim=xstar, expname='exp4')
+    bboptim = BB(x0, objFun, gradFun, A, maxIter=3.5e4, verbose=False, optim=xstar, expname='exp4')
 
 def exp5():
-    ## Experiment 5, compare the numerical performance of some methods in terms of the average number of iterations solving randomly generated sparse systems of equations
+    '''
+    Experiment 5, compare the numerical performance of some methods in terms of the average number of iterations solving randomly generated sparse systems of equations
+    '''
     import scipy.stats as stats
     import scipy.sparse as sparse
     # np.random.seed((3,14159))
@@ -112,35 +125,37 @@ def exp5():
         return A @ x - b
 
     t = np.random.choice([1e-1, 1e-3, 1e-6])
-    odhoptim = ODH(x0, objFun, gradFun, A, maxIter=2e5, tolerance=t, verbose=False, optim=xstar, expname='exp5')
+    print(n, t)
+    strategies=['ODH1', 'ODH2', 'AODH', 'AODHmin1']
+    odhoptim = ODH(x0, objFun, gradFun, A, theta=n, strategies=strategies, maxIter=2e5, tolerance=t, verbose=False, optim=xstar, expname='exp5')
     bboptim = BB(x0, objFun, gradFun, A, maxIter=2e5, tolerance=t,verbose=False, optim=xstar, expname='exp5')
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Select an experiment to run.')
     parser.add_argument('--exp', type=int, 
-                        help='an integer for the experiment')
+                        help='an integer for the experiment, {1:exp1, 2:exp2, 4:exp4, 5:exp5}')
 
     args = parser.parse_args()
 
     if args.exp==1:
         exp1()
         root_dir = './assets/'
-        filenames = ['odh-ODH1-exp1', 'odh-ODH2-exp1', 'odh-adaptive1-exp1', 'odh-adaptive2-exp1', 'BB1-exp1', 'BB2-exp1']
+        filenames = ['ODH1-exp1', 'ODH2-exp1', 'AODH-exp1', 'AODHmin1-exp1', 'BB1-exp1', 'BB2-exp1', 'ABB-exp1', 'ABBmin1-exp1']
         plot_from_npz(root_dir, filenames, savename='exp1.png')
     elif args.exp==2:
         exp2()
         root_dir = './assets/'
-        filenames = ['odh-ODH1-exp2', 'odh-ODH2-exp2', 'odh-adaptive1-exp2', 'odh-adaptive2-exp2', 'BB1-exp2', 'BB2-exp2']
+        filenames = ['ODH1-exp2', 'ODH2-exp2', 'AODH-exp2', 'AODHmin1-exp2', 'BB1-exp2', 'BB2-exp2', 'ABB-exp2', 'ABBmin1-exp2']
         plot_from_npz(root_dir, filenames, savename='exp2.png')
     elif args.exp==4:
         exp4()
         root_dir = './assets/'
-        filenames = ['odh-ODH1-exp4', 'odh-ODH2-exp4', 'odh-adaptive1-exp4', 'odh-adaptive2-exp4', 'BB1-exp4', 'BB2-exp4']
+        filenames = ['ODH1-exp4', 'ODH2-exp4', 'AODH-exp4', 'AODHmin1-exp4', 'BB1-exp4', 'BB2-exp4', 'ABB-exp4', 'ABBmin1-exp4']
         plot_from_npz(root_dir, filenames, savename='exp4.png')
     elif args.exp==5:
         exp5()
         root_dir = './assets/'
-        filenames = ['odh-ODH1-exp5', 'odh-ODH2-exp5', 'odh-adaptive1-exp5', 'odh-adaptive2-exp5', 'BB1-exp5', 'BB2-exp5']
+        filenames = ['ODH1-exp5', 'ODH2-exp5', 'AODH-exp5', 'AODHmin1-exp5', 'BB1-exp5', 'BB2-exp5', 'ABB-exp5', 'ABBmin1-exp5']
         plot_from_npz(root_dir, filenames, savename='exp5.png')
     else:
         print(f"Experiment {args.exp} is not implemented yet.")
