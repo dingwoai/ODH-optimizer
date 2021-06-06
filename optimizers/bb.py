@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from scipy.optimize import minimize, rosen, rosen_der
 from utils.plot import *
 
@@ -9,13 +10,15 @@ class BB:
                  gradFun,
                  A=None,
                  strategies=['BB1', 'BB2', 'ABB', 'ABBmin1'],
-                 theta=1,
+                #  theta=1,  ## not used in BB
                  kappa=0.5,
                  tau=0.65,
                  maxIter=1e5,
                  tolerance=1e-8,
                  verbose=False,
                  optim=0,
+                 alphamin=1e-4,
+                 alphamax=1e4,
                  expname='exp1'):
         """
         An unofficial implementation of Barzilar-Borwein (BB) method.
@@ -34,28 +37,32 @@ class BB:
         self.objFun = objFun
         self.gradFun = gradFun
         self.x = [x0, x0+np.random.rand(len(x0)).reshape(-1,1)]
-        self.alpha = []
+        self.alpha, self.alphak2 = [], []
         self.g = [gradx0, gradFun(self.x[-1])]
         self.gk_norm = []
         self.iter = 0
         self.A = A
         # self.strategy = strategy
-        self.theta = theta
+        # self.theta = theta
         self.kappa = kappa
         self.tau = tau
         self.maxIter = maxIter
         self.tolerance = tolerance
         self.verbose = verbose
         self.optim = optim
+        self.alphamin = alphamin
+        self.alphamax = alphamax
         self.error = []
         if self.verbose:
             print("Initial values: ", self.x, self.g, 'Optima: ', self.optim)
         
         for self.strategy in strategies:
-            print("Strategy: ", self.strategy)
-            self.optimize()
-            self.save_result(name=self.strategy+'-'+expname)
             self.reset()
+            print("Strategy: ", self.strategy)
+            start = time.time()
+            self.optimize()
+            print(f"Time cost {time.time()-start}, Iter {self.iter}, Error {self.error[-1]}, NormG is {self.gk_norm[-1]}")
+            self.save_result(name=self.strategy+'-'+expname)
 
     def plot(self, save=True, filename='test.png'):
         # plot_single(self.gk_norm, 'gk_norm')
@@ -72,7 +79,7 @@ class BB:
 
     def reset(self):
         self.x = self.x[:2]
-        self.alpha = []
+        self.alpha, self.alphak2 = [], []
         self.g = self.g[:2]
         self.gk_norm = []
         self.iter = 0
@@ -86,27 +93,28 @@ class BB:
         while True:
             # stop criterium
             if gk_norm<self.tolerance:
-                print("Iter ", self.iter, " gk_norm is small enough with value ", gk_norm) 
+                print(f"Iter {self.iter}, gk_norm is small enough with value {gk_norm}") 
                 break
             if self.iter>=self.maxIter:
-                print('max number of iterations ', self.iter, ' is reached')
+                print(f'max number of iterations {self.iter} is reached')
                 break
 
             # calculate alpha
             alphak, status = self.calcAlpha(self.strategy)
-
+            # correct/truncate alpha, for stable BB
+            # alphak = np.min([np.max([alphak, self.alphamin]), self.alphamax])
+            # if alphak <= 0:
+            #     alphak = np.linalg.norm(self.sk_old) / np.linalg.norm(self.yk_old)
             # stop criterium
             if status:
-                print("Iter ", self.iter, " xk do not change, optimize stopped.")
+                print(f"Iter {self.iter}, xk do not change, optimize stopped. NormG is {gk_norm}")
                 # print("Optimum: ", self.x[-1])
                 break
 
             # update
-            xk = self.x[-1] - alphak*self.g[-1]  ## this is different with odh
-            try:
-                gk = self.g[-1] - alphak*self.A @ self.g[-1]  ## this is different with odh
-            except:
-                gk = self.gradFun(xk)
+            # xk = self.x[-1] - alphak*self.g[-1]  ## this is different with odh
+            xk = self.x[-1] - 1./alphak*self.g[-1]
+            gk = self.gradFun(xk)
             gk_norm = np.linalg.norm(self.g[-1], ord=2)
             error_norm = np.linalg.norm(xk-self.optim, ord=2)
             self.iter+=1
@@ -121,7 +129,7 @@ class BB:
             if self.verbose:
                 if self.iter%100==0:
                     print("Iter done:", self.iter)
-                    print("alphak:", alphak, "gk_norm:", gk_norm, 'gk', gk,  "x:", xk)
+                    print("alphak:", alphak, "gk_norm:", gk_norm)
                     # break
 
     def calcAlpha(self, strategy):
@@ -129,8 +137,10 @@ class BB:
         status = 0
         # y[k] = g[k] - g[k-1]
         yk_old = self.g[-1] - self.g[-2]
+        self.yk_old = yk_old
         # s[k-1] = x[k] - x[k-1]
         sk_old = self.x[-1] - self.x[-2]
+        self.sk_old = sk_old
 
         if np.linalg.norm(sk_old, ord=2)<self.tolerance and np.linalg.norm(yk_old, ord=2)<self.tolerance:
             ## stop if solution x AND gradient g do not change much
@@ -142,29 +152,34 @@ class BB:
         else:
             alphak1 = self.calcAlpha_BB1(yk_old, sk_old)
             alphak2 = self.calcAlpha_BB2(yk_old, sk_old)
+            self.alphak2.append(alphak2)
 
             if strategy=='ABB':
-                if alphak1<=self.kappa*alphak2:
-                    return alphak1, status
-                else:
+                if alphak2<=self.kappa*alphak1:
                     return alphak2, status
+                else:
+                    return alphak1, status
             elif strategy=='ABBmin1':
                 m = 9     ## this value is chosen following setting in paper
                 M = max(1, self.iter+1-m)
-                if alphak1<=self.tau*alphak2:
-                    return np.min(np.append(self.alpha[-m:-1], alphak1)), status
+                if alphak2<=self.tau*alphak1:
+                    return np.min(self.alphak2[-M:-1]), status
                 else:
-                    return alphak2, status
+                    return alphak1, status
         
     def calcAlpha_BB1(self, yk_old, sk_old):
-        ## equation (6.2.9)
-        alphak = (sk_old.transpose() @ yk_old) / (yk_old.transpose() @ yk_old)
-        return alphak
+        ## equation (6.2.9) in book
+        # alphak = (sk_old.transpose() @ yk_old) / (yk_old.transpose() @ yk_old)
+        ## equation (3.2) in paper
+        alphak = (sk_old.transpose() @ yk_old) / (sk_old.transpose() @ sk_old)
+        return alphak[0][0]
 
     def calcAlpha_BB2(self, yk_old, sk_old):
-        ## equation (6.2.9)
-        alphak = (sk_old.transpose() @ sk_old) / (sk_old.transpose() @ yk_old)
-        return alphak
+        ## equation (6.2.9) in book
+        # alphak = (sk_old.transpose() @ sk_old) / (sk_old.transpose() @ yk_old)
+        ## equation (3.2) in paper
+        alphak = (yk_old.transpose() @ yk_old) / (sk_old.transpose() @ yk_old)
+        return alphak[0][0]
 
 if __name__=='__main__':
     ## initialize

@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from scipy.optimize import minimize, rosen, rosen_der
 from utils.plot import *
 from utils.common import *
@@ -33,7 +34,7 @@ class ODH:
         self.objFun = objFun
         self.gradFun = gradFun
         self.x = [x0, x0+np.random.rand(len(x0)).reshape(-1,1)]
-        self.alpha = []
+        self.alpha, self.alphak1 = [], []
         self.g = [gradx0, gradFun(self.x[-1])]
         self.gk_norm = []
         self.iter = 0
@@ -51,10 +52,12 @@ class ODH:
             print("Initial values: ", self.x, self.g, 'Optima: ', self.optim)
         
         for self.strategy in strategies:
-            print("Strategy: ", self.strategy)
-            self.optimize()
-            self.save_result(name=self.strategy+'-'+expname)
             self.reset()
+            print("Strategy: ", self.strategy)
+            start = time.time()
+            self.optimize()
+            print(f"Time cost {time.time()-start}, Iter {self.iter}, Error {self.error[-1]}, NormG is {self.gk_norm[-1]}")
+            self.save_result(name=self.strategy+'-'+expname)
 
     def plot(self, save=True, filename='test.png'):
         # plot_single(self.gk_norm, 'gk_norm')
@@ -71,7 +74,7 @@ class ODH:
 
     def reset(self):
         self.x = self.x[:2]
-        self.alpha = []
+        self.alpha, self.alphak1 = [], []
         self.g = self.g[:2]
         self.gk_norm = []
         self.iter = 0
@@ -86,10 +89,10 @@ class ODH:
         while True:
             # stop criterium
             if gk_norm<self.tolerance:
-                print("Iter ", self.iter, " gk_norm is small enough with value ", gk_norm) 
+                print(f"Iter {self.iter}, gk_norm is small enough with value {gk_norm}") 
                 break
             if self.iter>=self.maxIter:
-                print('max number of iterations ', self.iter, ' is reached')
+                print(f'max number of iterations {self.iter} is reached')
                 break
 
             # calculate alpha
@@ -97,7 +100,7 @@ class ODH:
 
             # stop criterium
             if status:
-                print("Iter ", self.iter, " xk do not change, optimize stopped.")
+                print(f"Iter {self.iter}, xk do not change, optimize stopped. NormG is {gk_norm}")
                 # print("Optimum: ", self.x[-1])
                 break
 
@@ -121,7 +124,7 @@ class ODH:
             if self.verbose:
                 if self.iter%100==0:
                     print("Iter done:", self.iter)
-                    print("alphak:", alphak, "gk_norm:", gk_norm, 'gk', gk,  "x:", xk)
+                    print("alphak:", alphak, "gk_norm:", gk_norm)
                     # break
 
     def calcAlpha(self, strategy):
@@ -142,6 +145,7 @@ class ODH:
         else:
             alphak1 = self.calcAlpha_ODH1(yk_old, sk_old)
             alphak2 = self.calcAlpha_ODH2(yk_old, sk_old)
+            self.alphak1.append(alphak1)
 
             if strategy=='AODH':
                 ## equation (4.14)
@@ -154,7 +158,7 @@ class ODH:
                 m = 9     ## this value is chosen following setting in paper
                 M = max(1, self.iter+1-m)
                 if alphak1<=self.tau*alphak2:
-                    return np.min(np.append(self.alpha[-m:-1], alphak1)), status
+                    return np.min(self.alphak1[-M:-1]), status
                 else:
                     return alphak2, status
     
@@ -162,13 +166,13 @@ class ODH:
         Dk_old = (yk_old @ yk_old.transpose()) / (sk_old.transpose() @ yk_old)
         ## equation (4.3)
         alphak = (self.theta * np.trace(Dk_old) + sk_old.transpose() @ yk_old) / (self.theta + sk_old.transpose() @ sk_old)
-        return alphak
+        return alphak[0][0]
 
     def calcAlpha_ODH2(self, yk_old, sk_old):
         Hk_old = (sk_old @ sk_old.transpose()) / (sk_old.transpose() @ yk_old)
         ## equation (4.3)
         alphak = (self.theta + (yk_old.transpose() @ yk_old)) / (self.theta * np.trace(Hk_old) + sk_old.transpose() @ yk_old)
-        return alphak
+        return alphak[0][0]
 
 if __name__=='__main__':
     ## initialize

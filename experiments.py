@@ -95,25 +95,64 @@ def exp4():
 
     strategies=['ODH1', 'ODH2', 'AODH', 'AODHmin1']
     odhoptim = ODH(x0, objFun, gradFun, A, theta=n, strategies=strategies, maxIter=3.5e4, verbose=False, optim=xstar, expname='exp4')
-    bboptim = BB(x0, objFun, gradFun, A, maxIter=3.5e4, verbose=False, optim=xstar, expname='exp4')
+    strategies=['BB1', 'BB2', 'ABB', 'ABBmin1']
+    bboptim = BB(x0, objFun, gradFun, A, strategies=strategies, maxIter=3.5e4, verbose=False, optim=xstar, expname='exp4')
 
 def exp5():
     '''
     Experiment 5, compare the numerical performance of some methods in terms of the average number of iterations solving randomly generated sparse systems of equations
     '''
-    import scipy.stats as stats
-    import scipy.sparse as sparse
-    # np.random.seed((3,14159))
+    ## https://github.com/zhh210/pypdas/blob/4c51ebdb5b1f407b80ba4a699d9bb1c9bf690dc1/pdas/randutil.py
+    from cvxopt import matrix, spmatrix, normal, spdiag
+    from math import pi, sin, cos, pow
+    import random
+
+    def sprandsym(size,cond=100,sp=0.5,vec=None):
+        '''
+        Generate random sparse positive definite matrix with specified 
+        size, cond, sparsity. Implemented by random Jacobi rotation.
+        '''
+        def nnz(H):
+            'Compute the number of non-zeros of matrix H'
+            num = 0
+            for i in H:
+                if i != 0:
+                    num += 1
+
+            return num
+
+        def rand_jacobi(H):
+            '''
+            Apply random Jacobi rotation on matrix H, preserve eigenvalues, 
+            singular values, and symmetry
+            '''
+            (m,n) = H.size
+            theta = random.uniform(-pi,pi)
+            c = cos(theta)
+            s = sin(theta)
+            i = random.randint(0,m-1)
+            j = i
+            while j == i:
+                j = random.randint(0,n-1)
+
+            H[[i,j],:] =  matrix([[c,-s],[s,c]])*H[[i,j],:]
+            H[:,[i,j]] =  H[:,[i,j]]*matrix([[c,s],[-s,c]])
+            return H
+
+        root = pow(cond,1.0/(size-1))
+        if not vec:
+            vec = [pow(root,i) for i in range(size)]
+        H = spdiag(vec)
+        dimension = size*size
+
+        while nnz(H) < sp*dimension*0.95:
+            H = rand_jacobi(H)
+        return H
+
     n = 1000
-
-    def sprandsym(n, density):
-        rvs = stats.norm().rvs
-        X = sparse.random(n, n, density=density, data_rvs=rvs)
-        upper_X = sparse.triu(X) 
-        result = upper_X + upper_X.T - sparse.diags(X.diagonal())
-        return result
-
-    A = sprandsym(n, 0.8)  # in Matlab, A = sprandsym(n, 0.8, 1/condA, 1)
+    condA = 1000
+    A = sprandsym(n, 1./condA, 0.8)  # in Matlab, A = sprandsym(n, 0.8, 1/condA, 1)
+    A = np.array(matrix(A))
     x0 = (-10 + 20*np.random.rand(n, 1))
     xstar = (-10 + 20*np.random.rand(n, 1))
     b = A@xstar
@@ -127,8 +166,10 @@ def exp5():
     t = np.random.choice([1e-1, 1e-3, 1e-6])
     print(n, t)
     strategies=['ODH1', 'ODH2', 'AODH', 'AODHmin1']
-    odhoptim = ODH(x0, objFun, gradFun, A, theta=n, strategies=strategies, maxIter=2e5, tolerance=t, verbose=False, optim=xstar, expname='exp5')
-    bboptim = BB(x0, objFun, gradFun, A, maxIter=2e5, tolerance=t,verbose=False, optim=xstar, expname='exp5')
+    odhoptim = ODH(x0, objFun, gradFun, A, theta=n, strategies=strategies, maxIter=2e4, tolerance=t, verbose=False, optim=xstar, expname='exp5')
+    strategies=['BB1', 'BB2', 'ABB', 'ABBmin1']
+    bboptim = BB(x0, objFun, gradFun, A, strategies=strategies, maxIter=2e4, tolerance=t, verbose=False, optim=xstar, expname='exp5')
+    print(np.min(bboptim.alpha))
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Select an experiment to run.')

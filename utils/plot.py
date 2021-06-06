@@ -29,14 +29,19 @@ def plot_multi(datas, texts, savename):
 
 
 def plot_from_npz(root_dir, filenames, savename):
-    data = []
+    data_error, data_alpha, data_gnorm = [], [], []
     for f in filenames:
         print(f)
-        data.append(np.load(os.path.join(root_dir, f+ '.npz'))['error'])
-    plot_multi(data, filenames, savename)
+        data = np.load(os.path.join(root_dir, f+ '.npz'), allow_pickle=True)
+        data_error.append(data['error'])
+        data_alpha.append(data['alpha'])
+        data_gnorm.append(data['gk_norm'])
+    plot_multi(data_error, filenames, 'error-'+savename)
+    plot_multi(data_alpha, filenames, 'alpha-'+savename)
+    plot_multi(data_gnorm, filenames, 'gnorm-'+savename)
 
 
 if __name__=='__main__':
     root_dir = './assets/'
-    filenames = ['odh-ODH1', 'odh-ODH2', 'odh-adaptive1', 'odh-adaptive2']
-    plot_from_npz(root_dir, filenames, savename='odh.png')
+    filenames = ['ODH1-exp5', 'ODH2-exp5', 'BB1-exp5', 'BB2-exp5']
+    plot_from_npz(root_dir, filenames, savename='exp5-2.png')
