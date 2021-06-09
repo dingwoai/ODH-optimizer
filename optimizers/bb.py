@@ -107,7 +107,7 @@ class BB:
             #     alphak = np.linalg.norm(self.sk_old) / np.linalg.norm(self.yk_old)
             # stop criterium
             if status:
-                print(f"Iter {self.iter}, xk do not change, optimize stopped. NormG is {gk_norm}")
+                print(f"Iter {self.iter}, xk or gk do not change, optimize stopped. NormG is {gk_norm}")
                 # print("Optimum: ", self.x[-1])
                 break
 
