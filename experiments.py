@@ -51,7 +51,7 @@ def exp2():
     Experiment 2, A = diag(1, 2, ..., n), where n is the condition number of the Hessian of the function f(x)
     '''
     k = np.random.choice([1, 10, 25, 50, 100, 200]) ## memoryError for k>200
-    k = 50
+    k = 100
     n = 100*k
     print(n)
     A = np.diag(list(range(1, n+1)))
